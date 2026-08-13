@@ -1,0 +1,19 @@
+{
+  "name": "zktls-playground",
+  "version": "1.0.0",
+  "description": "Stateless local playground for Primus zkTLS SDKs",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "vercel-build": "echo 'Building...'"
+  },
+  "dependencies": {
+    "@primuslabs/zktls-core-sdk": "latest",
+    "@primuslabs/network-core-sdk": "latest",
+    "ethers": "^5.7.0",
+    "express": "^4.18.0",
+    "ws": "^8.14.0",
+    "tslib": "latest",
+    "dotenv": "^16.4.5"
+  }
+}

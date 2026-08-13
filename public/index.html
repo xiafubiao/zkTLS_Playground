@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>zkTLS Playground</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: #ffffff; color: #1a1a1a; }
+  .header { display: flex; flex-direction: column; align-items: flex-start; gap: 0px; padding: 20px 40px; background: #ffffff; border-bottom: 1px solid #e5e5e5; flex-shrink: 0; position: relative; }
+  .header-banner { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: linear-gradient(135deg, rgba(253,84,0,0.85) 0%, rgba(253,84,0,0.6) 60%, rgba(253,84,0,0.4) 100%), url('img/banner.png'); border-bottom: 1px solid rgba(0,0,0,0.08); background-size: cover; background-position: right center; }
+
+.header-top { display: flex; align-items: center; gap: 0px; width: 100%; position: relative; z-index: 2; }
+  .header-title { flex: 1; position: relative; z-index: 2; }
+  .header-illustration { display: none; }
+  .header h1 { font-size: 22px; font-weight: 700; color: #fff; margin: 0 0 4px 0; letter-spacing: -0.3px; text-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .header-desc { font-size: 13px; color: rgba(255,255,255,0.85); line-height: 1.5; max-width: 650px; font-weight: 400; }
+  .header-desc a { color: #fff; text-decoration: underline; font-weight: 500;  }
+  .header-desc a:hover { color: #fff; text-decoration: none; }
+  .header-controls { display: flex; align-items: center; gap: 12px; width: 100%; padding-top: 4px; position: relative; z-index: 2; }
+
+
+  .header select:focus { outline: none; border-color: rgba(255,255,255,0.5); box-shadow: 0 0 0 3px rgba(255,255,255,0.2); }
+
+
+
+
+
+  .main { display: flex; flex: 1; overflow: hidden; margin-top: -1px; }
+  .toolbar { position: relative; z-index: 10; width: 130px; background: #fafafa; border-right: 1px solid #e5e5e5; display: flex; flex-direction: column; align-items: center; padding: 16px 0; gap: 10px; flex-shrink: 0; }
+  .tool-btn { width: 100px; padding: 10px 12px; border: 1px solid #e0e0e0; background: #fff; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: all 0.2s ease; color: #555; font-family: inherit; font-weight: 600; line-height: 1.3; text-align: center; white-space: normal; }
+  .tool-btn:hover { border-color: #fd5400; color: #fd5400; background: #fff7f2; box-shadow: 0 2px 8px rgba(253,84,0,0.12); transform: translateY(-1px); }
+  .tool-btn:active { transform: translateY(0); }
+  .tool-btn.btn-run { background: #fd5400; color: #fff; border: none; font-weight: 600; }
+  .tool-btn.btn-run:hover { background: #e54b00; color: #fff; border: none; box-shadow: 0 4px 14px rgba(253,84,0,0.35); }
+  .tool-btn.btn-run:disabled { background: #e0e0e0; color: #999; border: none; }
+  .tooltip-box { position: fixed; background: #1a1a1a; color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 12px; line-height: 1.6; width: 200px; z-index: 9999; pointer-events: none; box-shadow: 0 6px 20px rgba(0,0,0,0.25); display: none; }
+  .tooltip-box::after { content: ""; position: absolute; top: 100%; left: 20px; border: 6px solid transparent; border-top-color: #1a1a1a; }
+  .code-highlight-flash { background: rgba(253,84,0,0.15) !important; animation: fadeOutHighlight 3s ease-out 2s forwards; }
+  @keyframes fadeOutHighlight { from { background: rgba(253,84,0,0.15); } to { background: transparent !important; } }
+  .editor-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fff; border-bottom: 1px solid #e5e5e5; }
+  .editor-toolbar-left { display: flex; align-items: center; gap: 12px; }
+  .editor-toolbar select { background: #f5f5f5; color: #1a1a1a; border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px 12px; font-size: 13px; font-family: inherit; cursor: pointer; min-width: 180px; }
+  .editor-toolbar select:hover { border-color: #fd5400; }
+  .editor-pane { flex: 1; display: flex; flex-direction: column; border-right: 1px solid #e5e5e5; background: #ffffff; padding-top: 16px; }
+  .side-pane { width: 440px; display: flex; flex-direction: column; overflow: hidden; background: #ffffff; }
+  .config-section { padding: 20px 24px; border-bottom: 1px solid #e5e5e5; max-height: 260px; overflow-y: auto; background: #fafafa; }
+  .config-section h3 { font-size: 11px; color: #666; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+  .sdk-version { text-transform: none; font-weight: 600; font-size: 10px; color: #fd5400; background: rgba(253,84,0,0.1); padding: 2px 8px; border-radius: 10px; margin-left: 6px; letter-spacing: 0.3px; vertical-align: 1px; }
+  .config-row { display: flex; align-items: center; gap: 12px; margin-bottom: 0; }
+  .config-row label { font-size: 13px; color: #666; width: 100px; flex-shrink: 0; font-weight: 500; }
+  .config-row input { flex: 1; background: #ffffff; color: #1a1a1a; border: 1px solid #e5e5e5; border-radius: 6px; padding: 8px 12px; font-size: 13px; font-family: inherit; }
+  .config-row input:focus { outline: none; border-color: #fd5400; box-shadow: 0 0 0 3px rgba(253,84,0,0.12); }
+  .config-row input::placeholder { color: #999; }
+  .output-section { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .output-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid #e5e5e5; background: #ffffff; min-height: 50px; }
+  .output-header h3 { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+.output-status.success { color: #34d399; background: rgba(52,211,153,0.15); }
+.output-status.error { color: #f87171; background: rgba(248,113,113,0.15); }
+  .output-console { flex: 1; overflow-y: auto; padding: 20px 24px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; background: #ffffff; font-family: 'SF Mono', 'Monaco', 'Menlo', monospace; }
+  .output-line { margin-bottom: 3px; color: #1a1a1a; }
+  .output-line.stderr { color: #ef4444; }
+  .output-line.info { color: #666; }
+  #monaco { width: 100%; height: 100%; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: #f0f0f0; }
+  ::-webkit-scrollbar-thumb { background: #d0d0d0; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #b0b0b0; }
+  .code-notice { margin: 0 8px 8px 8px; border-radius: 6px;  position: relative; padding: 12px 18px; background: #fffbeb; border-bottom: 1px solid #fef3c7; font-size: 12px; line-height: 1.5; color: #92400e; }
+  .code-notice strong { color: #d97706; font-weight: 600; }
+  .code-notice-close { position: absolute; top: 8px; right: 12px; background: none; border: none; font-size: 16px; color: #d97706; cursor: pointer; padding: 0 4px; line-height: 1; }
+  .code-notice-close:hover { opacity: 1; background: #fef3c7; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-banner"></div>
+  <div class="header-top">
+    <div class="header-title">
+      <h1>Primus zkTLS Playground</h1>
+      <p class="header-desc">Use this playground to test Primus zkTLS SDKs directly in your browser, make API requests, and run demo attestations. For complete code examples, visit: <a href="https://github.com/primus-labs/zktls-demo" target="_blank">https://github.com/primus-labs/zktls-demo</a> For the details of zkTLS operations and features, please visit: <a href="https://docs.primuslabs.xyz/" target="_blank">https://docs.primuslabs.xyz/</a></p>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="toolbar">
+    <button class="tool-btn" id="btn-reset" data-tooltip="reset code to the original example template" onclick="resetCode()">Reset<br>Code</button>
+    <button class="tool-btn" id="btn-add-op" data-tooltip="add hash operations to the attestation, and hide the raw value from the response" onclick="addZkTLSOp()">Hash Output Data</button>
+    <button class="tool-btn" id="btn-compare" data-tooltip="add comparison operation to verify value thresholds (e.g. price > 1000)" onclick="addCompareOp()">Compare Operation</button>
+    <button class="tool-btn" id="btn-multi-url" data-tooltip="add multiple URLs to attest multiple API responses in one batch" onclick="addMultiURL()">Multiple URLs</button>
+    <button class="tool-btn" id="btn-mpc-tls" data-tooltip="switch attestation mode from proxy-TLS to MPC-TLS for stronger privacy" onclick="switchMPCTLS()">Change TLS Algorithms</button>
+    <button class="tool-btn btn-run" id="btn-run" >Run Code</button>
+
+  </div>
+  <div class="editor-pane">
+    <div class="editor-toolbar">
+      <div class="editor-toolbar-left">
+        <select id="sdk-select">
+          <option value="zktls-core-sdk">zktls-core-sdk</option>
+          <option value="network-core-sdk">network-core-sdk (on-chain)</option>
+        </select>
+        <select id="example-select"></select>
+      </div>
+
+    </div>
+    <div class="code-notice" id="code-notice">
+      <strong>Note:</strong> The code you run in this demo environment is a simulation only.<br>
+      There may be minor differences to the real Primus zkTLS application.
+      <button class="code-notice-close" onclick="document.getElementById('code-notice').style.display='none'">&times;</button>
+    </div>
+    <div id="monaco"></div>
+  </div>
+  <div class="side-pane">
+    <div id="config-section" class="config-section"></div>
+    <div class="output-section">
+      <div class="output-header">
+        <h3>Output</h3>
+      </div>
+      <div class="output-console" id="output-console"></div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip-box" id="tooltip-box"></div>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+<script>
+const ILLUSTRATIONS = {
+  'zktls-core-sdk': 'img/main-illustration.png',
+  'network-core-sdk': 'img/illus-payment.png'
+};
+
+const DEFAULTS = {
+  "zktls-core-sdk": {},
+  "network-core-sdk": {
+    chainId: "84532",
+    rpcUrl: "https://sepolia.base.org",
+  },
+};
+
+const EXAMPLES = {
+  "okx-ticker": {
+    name: "OKX Ticker (BTC-USDT price)",
+    url: "https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT",
+    fields: [
+      { keyName: "last", parsePath: "$.data[0].last" },
+      { keyName: "bidPx", parsePath: "$.data[0].bidPx" },
+      { keyName: "askPx", parsePath: "$.data[0].askPx" },
+    ],
+  },
+  "coingecko": {
+    name: "CoinGecko (BTC price)",
+    url: "https://api.coingecko.com/api/v3/simple/price?vs_currencies=usd&ids=bitcoin",
+    fields: [
+      { keyName: "btcUsd", parsePath: "$.bitcoin.usd" },
+    ],
+  },
+  "binance-ticker": {
+    name: "Binance (BTCUSDT price)",
+    url: "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+    fields: [
+      { keyName: "symbol", parsePath: "$.symbol" },
+      { keyName: "price", parsePath: "$.price" },
+    ],
+  },
+  "github-repo": {
+    name: "GitHub (Primus repo stars)",
+    url: "https://api.github.com/repos/primus-labs/zktls-core-sdk",
+    fields: [
+      { keyName: "stars", parsePath: "$.stargazers_count" },
+      { keyName: "forks", parsePath: "$.forks_count" },
+    ],
+  },
+};
+
+function zktlsCoreTemplate(ex) {
+  const resolves = ex.fields.map(f =>
+    '    { keyName: "' + f.keyName + '", parseType: "json", parsePath: "' + f.parsePath + '" },'
+  ).join("\n");
+
+  return [
+    'import { PrimusCoreTLS } from "@primuslabs/zktls-core-sdk";',
+    '',
+    'async function main() {',
+    '  console.log("=== zkTLS Core SDK - ' + ex.name + ' ===\\n");',
+    '',
+    '  const zkTLS = new PrimusCoreTLS();',
+    '  await zkTLS.init(process.env.APP_ID, process.env.APP_SECRET, "auto");',
+    '  console.log("[1/4] SDK initialized");',
+    '',
+    '  const request = {',
+    '    url: "' + ex.url + '",',
+    '    method: "GET",',
+    '    header: { "user-agent": "Mozilla/5.0" },',
+    '    body: "",',
+    '  };',
+    '',
+    '  const responseResolves = [',
+    resolves,
+    '  ];',
+    '',
+    '  const attRequest = zkTLS.generateRequestParams(',
+    '    request, responseResolves, "0x0000000000000000000000000000000000000000"',
+    '  );',
+    '  attRequest.setAttMode({ algorithmType: "proxytls", resultType: "plain" });',
+    '  console.log("[2/4] Request params generated");',
+    '  console.log("      URL:", request.url);',
+    '',
+    '  console.log("[3/4] Starting attestation...");',
+    '  const attestation = await zkTLS.startAttestation(attRequest, 2 * 60 * 1000);',
+    '  // attestation received',
+    '',
+    '  console.log("[3/4] Full attestation:");',
+    '  console.log(JSON.stringify(attestation, null, 2));',
+    '',
+    '  const ok = zkTLS.verifyAttestation(attestation);',
+    '  console.log("[4/4] Local verify:", ok);',
+    '}',
+    '',
+    'await main().catch(err => console.error("[ERROR]", err.message || err));',
+    ''
+  ].join("\n");
+}
+
+function networkCoreTemplate(ex) {
+  const resolves = ex.fields.map(f =>
+    '    { keyName: "' + f.keyName + '", parseType: "json", parsePath: "' + f.parsePath + '" },'
+  ).join("\n");
+
+  return [
+    "require('dotenv').config();",
+    "const { PrimusNetwork } = require('@primuslabs/network-core-sdk');",
+    "const { ethers } = require('ethers');",
+    "",
+    "const requests = [{",
+    "  url: '" + ex.url + "',",
+    "  method: 'GET',",
+    "  header: { 'user-agent': 'Mozilla/5.0' },",
+    "  body: '',",
+    "}];",
+    "",
+    "const responseResolves = [[",
+    resolves,
+    "]];",
+    "",
+    "async function main() {",
+    '  console.log("=== Network Core SDK - ' + ex.name + ' ===\\n");',
+    "",
+    "  const provider = new ethers.providers.JsonRpcProvider(process.env.RPC_URL);",
+    "  const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);",
+    '  console.log("[1/6] Wallet:", wallet.address);',
+    "",
+    "  const primusNetwork = new PrimusNetwork();",
+    "  await primusNetwork.init(wallet, Number(process.env.CHAIN_ID));",
+    '  console.log("[2/6] SDK initialized on chain", process.env.CHAIN_ID);',
+    "",
+    "  const submitTaskParams = { address: wallet.address };",
+    "  const submitTaskResult = await primusNetwork.submitTask(submitTaskParams);",
+    '  console.log("[3/6] Task submitted:", submitTaskResult.taskId);',
+    "",
+    '  console.log("[4/6] Starting attestation...");',
+    "  const attestResult = await primusNetwork.attest({",
+    "    ...submitTaskParams, ...submitTaskResult,",
+    "    requests, responseResolves,",
+    "    attMode: { algorithmType: 'proxytls' },",
+    "  });",
+    '  // attestation received',
+    "",
+    "  const result = attestResult[0];",
+    "  const data = JSON.parse(result.attestation.data);",
+    '  console.log("[5/6] Verified data:");',
+    "  console.log(JSON.stringify(data, null, 2));",
+    "",
+    '  console.log("[6/6] Polling on-chain...");',
+    "  const taskResult = await primusNetwork.verifyAndPollTaskResult({",
+    "    taskId: result.taskId, reportTxHash: result.reportTxHash,",
+    "  });",
+    '  console.log("      On-chain confirmed!");',
+    "",
+    '  console.log("\\n========== Full Attestation Result ==========");',
+    '  console.log(JSON.stringify(result, null, 2));',
+    "}",
+    "",
+    "(async () => { await main().catch(err => console.error('[ERROR]', err.message || err)); })();",
+    ""
+  ].join("\n");
+}
+
+let editor, isRunning = false;
+
+function addZkTLSOp() {
+    const sdk = getCurrentSDK();
+    const code = editor.getValue();
+
+    if (sdk === "zktls-core-sdk") {
+      const ex = EXAMPLES[getCurrentExample()];
+      const firstKey = ex.fields[0].keyName;
+      const insertLines = [
+        '  const attConditions = [[{ field: "' + firstKey + '", op: "SHA256" }]];',
+        '  attRequest.setAttConditions(attConditions);',
+      ].join("\n");
+      const target = "  attRequest.setAttMode(";
+      if (code.indexOf(target) !== -1 && code.indexOf("setAttConditions") === -1) {
+        const newCode = code.replace(target, insertLines + "\n" + target);
+        editor.setValue(newCode);
+        const lines = newCode.split("\n");
+        let startLine = -1;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].indexOf("const attConditions =") !== -1) {
+            startLine = i;
+            break;
+          }
+        }
+        highlightLines(newCode, "const attConditions =", 2);
+      }
+    } else if (sdk === "network-core-sdk") {
+      // Add op: "SHA256" to the first field in responseResolves inner array
+      const ex = EXAMPLES[getCurrentExample()];
+      const firstKey = ex.fields[0].keyName;
+      const oldPattern = '{ keyName: "' + firstKey + '"';
+      const newPattern = '{ keyName: "' + firstKey + '"';
+      // Find the first field line in responseResolves and add op
+      const lines = code.split("\n");
+      let modifiedLine = -1;
+      let inResponseResolves = false;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].indexOf("responseResolves") !== -1 && lines[i].indexOf("[[") !== -1) {
+          inResponseResolves = true;
+          continue;
+        }
+        if (inResponseResolves && lines[i].indexOf('keyName: "' + firstKey + '"') !== -1 && lines[i].indexOf('op') === -1) {
+          // Add op before the closing }
+          lines[i] = lines[i].replace(/\s*\},?\s*$/, ', op: "SHA256" },');
+          modifiedLine = i;
+          break;
+        }
+      }
+      if (modifiedLine !== -1) {
+        const newCode = lines.join("\n");
+        editor.setValue(newCode);
+        editor.revealLineInCenter(modifiedLine + 1);
+        const decorations = editor.deltaDecorations([], [
+          { range: new monaco.Range(modifiedLine + 1, 1, modifiedLine + 1, 1), options: { isWholeLine: true, className: "code-highlight-flash", linesDecorationsClassName: "" } }
+        ]);
+  
+      }
+    }
+  }
+  function getDefaultCompareValue() {
+    const exampleId = getCurrentExample();
+    const defaults = {
+      "okx-ticker": "10000",
+      "coingecko": "10000",
+      "binance-ticker": "10000",
+      "github-repo": "10",
+    };
+    return defaults[exampleId] || "1000";
+  }
+  function addCompareOp() {
+    const sdk = getCurrentSDK();
+    const code = editor.getValue();
+    const ex = EXAMPLES[getCurrentExample()];
+    const firstKey = ex.fields[0].keyName;
+    const defaultValue = getDefaultCompareValue();
+
+    if (sdk === "zktls-core-sdk") {
+      const insertLines = [
+        '  const attConditions = [[{ field: "' + firstKey + '", op: ">", value: "' + defaultValue + '" }]];',
+        '  attRequest.setAttConditions(attConditions);',
+      ].join("\n");
+      const target = "  attRequest.setAttMode(";
+      if (code.indexOf(target) !== -1 && code.indexOf("setAttConditions") === -1) {
+        const newCode = code.replace(target, insertLines + "\n" + target);
+        editor.setValue(newCode);
+        highlightLines(newCode, "const attConditions =", 2);
+      }
+    } else if (sdk === "network-core-sdk") {
+      const lines = code.split("\n");
+      let modifiedLine = -1;
+      let inResponseResolves = false;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].indexOf("responseResolves = [[") !== -1) {
+          inResponseResolves = true;
+          continue;
+        }
+        if (inResponseResolves && lines[i].indexOf('keyName: "' + firstKey + '"') !== -1 && lines[i].indexOf('op') === -1) {
+          lines[i] = lines[i].replace(/\},?\s*$/, ', op: ">", value: "' + defaultValue + '" },');
+          modifiedLine = i;
+          break;
+        }
+      }
+      if (modifiedLine !== -1) {
+        const newCode = lines.join("\n");
+        editor.setValue(newCode);
+        highlightLines(newCode, 'keyName: "' + firstKey + '"', 1);
+      }
+    }
+  }
+
+  function highlightLines(code, searchText, lineCount) {
+    const lines = code.split("\n");
+    let startLine = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].indexOf(searchText) !== -1) {
+        startLine = i;
+        break;
+      }
+    }
+    if (startLine !== -1) {
+      editor.revealLineInCenter(startLine + 1);
+      const decorations = editor.deltaDecorations([], [
+        { range: new monaco.Range(startLine + 1, 1, startLine + lineCount, 1), options: { isWholeLine: true, className: "code-highlight-flash", linesDecorationsClassName: "" } }
+      ]);
+
+    }
+  }
+  // Per-example second URL + field remapping for network-core-sdk multi-URL
+  const MULTI_SECOND = {
+    "okx-ticker": {
+      url: "https://www.okx.com/api/v5/market/ticker?instId=SOL-USDT",
+      keyMap: { last: "solLast", bidPx: "solBidPx", askPx: "solAskPx" },
+    },
+    "coingecko": {
+      url: "https://api.coingecko.com/api/v3/simple/price?vs_currencies=usd&ids=ethereum",
+      keyMap: { btcUsd: "ethUsd" },
+      pathMap: { "$.bitcoin.usd": "$.ethereum.usd" },
+    },
+    "binance-ticker": {
+      url: "https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT",
+      keyMap: { symbol: "symbol2", price: "price2" },
+    },
+    "github-repo": {
+      url: "https://api.github.com/repos/primus-labs/zktls-demo",
+      keyMap: { stars: "demoStars", forks: "demoForks" },
+    },
+  };
+
+  function addMultiURL() {
+    const sdk = getCurrentSDK();
+    if (sdk !== "network-core-sdk" && sdk !== "zktls-core-sdk") return;
+    let code = editor.getValue();
+
+    // Already multi (second URL already present) -> skip
+    const secondCfg = MULTI_SECOND[getCurrentExample()];
+    if (!secondCfg) return;
+    if (code.indexOf(secondCfg.url) !== -1) return;
+
+    if (sdk === "zktls-core-sdk") {
+      // --- zktls-core-sdk: request is a single object, need to convert ---
+      // Replace 'const request = {' with 'const request = [ {'
+      // Find the request object block
+      const reqStart = code.indexOf("const request = {");
+      if (reqStart === -1) return;
+      const reqEnd = code.indexOf("};", reqStart);
+      if (reqEnd === -1) return;
+
+      // Extract first request body
+      const bodyStart = reqStart + "const request = {".length;
+      let firstBodyRaw = code.slice(bodyStart, reqEnd);
+      if (firstBodyRaw.charAt(0) === "\n") firstBodyRaw = firstBodyRaw.slice(1);
+      if (firstBodyRaw.charAt(firstBodyRaw.length - 1) === "\n") firstBodyRaw = firstBodyRaw.slice(0, -1);
+      const firstBody = firstBodyRaw.split("\n").map(l => "    " + l.trim()).join("\n");
+      const secondBody = firstBody.replace(/(url:\s*"[^"]+")/, () => 'url: "' + secondCfg.url + '"');
+
+      const newReqBlock =
+        "const request = [\n" +
+        "  {\n" + firstBody + "\n  },\n" +
+        "  {\n" + secondBody + "\n  }\n" +
+        "];";
+
+      code = code.replace(code.slice(reqStart, reqEnd + 2), newReqBlock);
+
+      // Extract responseResolves (currently 1D array), make it 2D
+      const respStart = code.indexOf("const responseResolves = [");
+      if (respStart !== -1) {
+        const respEnd = code.indexOf("];", respStart);
+        if (respEnd !== -1) {
+          const respBlock = code.slice(respStart, respEnd + 2);
+          const groupLines = respBlock.split("\n").filter(l => l.trim() && l.trim() !== "const responseResolves = [" && l.trim() !== "];");
+          const indented = groupLines.map(l => "    " + l.replace(/^\s+/, "")).join("\n");
+          let secondGroup = indented.replace(/keyName:\s*"([^"]+)"/g, (m, k) => {
+            const mapped = secondCfg.keyMap[k] || (k + "2");
+            return 'keyName: "' + mapped + '"';
+          });
+          if (secondCfg.pathMap) {
+            Object.keys(secondCfg.pathMap).forEach(p => {
+              secondGroup = secondGroup.split(p).join(secondCfg.pathMap[p]);
+            });
+          }
+          const newRespBlock =
+            "const responseResolves = [\n" +
+            "  [\n" + indented + "\n  ],\n" +
+            "  [\n" + secondGroup + "\n  ]\n" +
+            "];";
+          code = code.replace(respBlock, newRespBlock);
+        }
+      }
+
+      // Remove the 3rd argument of generateRequestParams
+      code = code.replace(
+        /zkTLS.generateRequestParams\(\s*request, responseResolves,\s*"[^"]*"\s*\)/,
+        "zkTLS.generateRequestParams(\n    request, responseResolves\n  )"
+      );
+
+      editor.setValue(code);
+      highlightLines(code, secondCfg.url, 1);
+      return;
+    }
+
+    // --- network-core-sdk: requests is already an array ---
+    // Extract the full requests array block
+    const reqStart = code.indexOf("const requests = [");
+    if (reqStart === -1) return;
+    const reqEnd = code.indexOf("];", reqStart);
+    if (reqEnd === -1) return;
+    const reqBlock = code.slice(reqStart, reqEnd + 2);
+
+    // Rebuild requests with two entries
+    const bodyStart = reqBlock.indexOf("{");       // first '{'
+    const bodyEnd = reqBlock.lastIndexOf("}");     // last '}'
+    let firstBodyRaw = reqBlock.slice(bodyStart + 1, bodyEnd);
+    if (firstBodyRaw.charAt(0) === "\n") firstBodyRaw = firstBodyRaw.slice(1);
+    if (firstBodyRaw.charAt(firstBodyRaw.length - 1) === "\n") firstBodyRaw = firstBodyRaw.slice(0, -1);
+    const firstBody = firstBodyRaw.split("\n").map(l => "    " + l.trim()).join("\n");
+    const secondBody = firstBody.replace(/(url:\s*'[^']+')/, () => "url: '" + secondCfg.url + "'");
+
+    const newReqBlock =
+      "const requests = [\n" +
+      "  {\n" + firstBody + "\n  },\n" +
+      "  {\n" + secondBody + "\n  }\n" +
+      "];";
+
+    code = code.replace(reqBlock, newReqBlock);
+
+    // Extract responseResolves first group
+    const respStart = code.indexOf("const responseResolves = [[");
+    if (respStart !== -1) {
+      const respEnd = code.indexOf("]];", respStart);
+      if (respEnd !== -1) {
+        const respBlock = code.slice(respStart, respEnd + 3);
+        const groupLines = respBlock.split("\n").filter(l => l.trim() && l.trim() !== "const responseResolves = [[" && l.trim() !== "]];");
+        const indented = groupLines.map(l => "    " + l.replace(/^\s+/, "")).join("\n");
+        let secondGroup = indented.replace(/keyName:\s*"([^"]+)"/g, (m, k) => {
+          const mapped = secondCfg.keyMap[k] || (k + "2");
+          return 'keyName: "' + mapped + '"';
+        });
+        if (secondCfg.pathMap) {
+          Object.keys(secondCfg.pathMap).forEach(p => {
+            secondGroup = secondGroup.split(p).join(secondCfg.pathMap[p]);
+          });
+        }
+        const newRespBlock =
+          "const responseResolves = [\n" +
+          "  [\n" + indented + "\n  ],\n" +
+          "  [\n" + secondGroup + "\n  ]\n" +
+          "];";
+        code = code.replace(respBlock, newRespBlock);
+      }
+    }
+
+    editor.setValue(code);
+
+    // Highlight the newly added section (second URL + second group)
+    highlightLines(code, secondCfg.url, 1);
+  }
+  function switchMPCTLS() {
+    const code = editor.getValue();
+    if (code.indexOf("proxytls") !== -1) {
+      editor.setValue(code.replace(/proxytls/g, "mpctls"));
+    } else if (code.indexOf("mpctls") !== -1) {
+      editor.setValue(code.replace(/mpctls/g, "proxytls"));
+    }
+  }
+  function resetCode() {
+    // Clear all decorations
+    editor.deltaDecorations(editor.deltaDecorations, []);
+    // Reload the current example code
+    loadCode();
+  }
+  function getCurrentSDK() { return document.getElementById("sdk-select").value; }
+function getCurrentExample() { return document.getElementById("example-select").value; }
+
+function getConfig() {
+  const sdk = getCurrentSDK();
+  const config = {};
+  if (sdk === "network-core-sdk") {
+    config.chainId = document.getElementById("cfg-chainId")?.value || "";
+    config.rpcUrl = document.getElementById("cfg-rpcUrl")?.value || "";
+  }
+  return config;
+}
+
+function renderConfig() {
+  const sdk = getCurrentSDK();
+  const d = DEFAULTS[sdk];
+  const el = document.getElementById("config-section");
+  
+  
+  const SDK_VERSIONS = { "zktls-core-sdk": "0.3.7", "network-core-sdk": "0.1.17" };
+  const ver = SDK_VERSIONS[sdk] || "unknown";
+
+  if (sdk === "zktls-core-sdk") {
+    el.innerHTML = '<h3>zktls-core-sdk Config <span class="sdk-version">v' + ver + '</span></h3>' +
+      '<div class="config-row" style="margin-bottom:12px;"><label style="width:auto;">API credentials loaded from server environment</label></div>';
+  } else {
+    el.innerHTML = '<h3>network-core-sdk Config <span class="sdk-version">v' + ver + '</span></h3>' +
+      '<div class="config-row" style="margin-bottom:8px;"><label style="width:auto;">Wallet private key loaded from server environment</label></div>' +
+      '<div class="config-row"><label>ChainId</label><input id="cfg-chainId" value="' + d.chainId + '"></div>' +
+      '<div class="config-row"><label>RPC URL</label><input id="cfg-rpcUrl" value="' + d.rpcUrl + '"></div>';
+  }
+}
+
+function loadCode() {
+  const sdk = getCurrentSDK();
+  const ex = EXAMPLES[getCurrentExample()];
+  if (!ex) return;
+  const code = sdk === "zktls-core-sdk" ? zktlsCoreTemplate(ex) : networkCoreTemplate(ex);
+  editor.setValue(code);
+}
+
+function renderExampleSelect() {
+  const sel = document.getElementById("example-select");
+  sel.innerHTML = Object.entries(EXAMPLES).map(([k, v]) =>
+    '<option value="' + k + '">' + v.name + '</option>'
+  ).join("");
+}
+
+function appendOutput(text, cls) {
+  const c = document.getElementById("output-console");
+  const line = document.createElement("div");
+  line.className = "output-line " + (cls || "");
+  line.textContent = text;
+  c.appendChild(line);
+  c.scrollTop = c.scrollHeight;
+}
+
+function clearOutput() { document.getElementById("output-console").innerHTML = ""; }
+
+function setStatus(text, cls) {
+  // status indicator removed
+}
+
+function handleOutput(msg) {
+  if (msg.type === "stdout") { appendOutput(msg.data); }
+  else if (msg.type === "stderr") {
+    if (msg.data.includes("|INFO|") || msg.data.includes("|ERROR|")) appendOutput(msg.data, "info");
+    else appendOutput(msg.data, "stderr");
+  }
+  else if (msg.type === "status") { appendOutput(msg.data, "info"); }
+  else if (msg.type === "done") {
+    isRunning = false;
+    document.getElementById("btn-run").disabled = false;
+    document.getElementById("btn-run").textContent = "Run";
+    if (msg.exitCode === 0) { setStatus("success", "success"); appendOutput("\n[Process exited: 0]", "info"); }
+    else { setStatus("error", "error"); appendOutput("\n[Process exited: " + msg.exitCode + "]", "stderr"); }
+  }
+}
+
+async function runCode() {
+  if (isRunning) return;
+  isRunning = true;
+  clearOutput();
+  setStatus("running", "running");
+  document.getElementById("btn-run").disabled = true;
+  document.getElementById("btn-run").textContent = "Running...";
+
+  try {
+    const res = await fetch("/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: editor.getValue(),
+        sdk: getCurrentSDK(),
+        config: getConfig(),
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error("HTTP " + res.status);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try { handleOutput(JSON.parse(line)); } catch {}
+      }
+    }
+    if (buffer.trim()) {
+      try { handleOutput(JSON.parse(buffer)); } catch {}
+    }
+  } catch (err) {
+    appendOutput("API Error: " + err.message, "stderr");
+    isRunning = false;
+    document.getElementById("btn-run").disabled = false;
+    document.getElementById("btn-run").textContent = "Run";
+    setStatus("error", "error");
+  }
+}
+
+// Init
+require.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs" } });
+require(["vs/editor/editor.main"], function () {
+  editor = monaco.editor.create(document.getElementById("monaco"), {
+    value: "",
+    language: "javascript",
+    theme: "vs",
+    fontSize: 13,
+    fontFamily: "'SF Mono', 'Monaco', 'Menlo', monospace",
+    minimap: { enabled: false },
+    scrollBeyondLastLine: false,
+    automaticLayout: true,
+    tabSize: 2,
+  });
+
+  renderExampleSelect();
+  renderConfig();
+  loadCode();
+
+  editor.onDidChangeModelContent(() => {
+    editor.deltaDecorations(editor.deltaDecorations, []);
+  });
+  document.getElementById("sdk-select").addEventListener("change", () => { renderConfig(); loadCode(); });
+  document.getElementById("example-select").addEventListener("change", () => { loadCode(); });
+  document.getElementById("btn-run").addEventListener("click", runCode);
+
+  // Custom tooltips for all tool buttons
+  const tip = document.getElementById("tooltip-box");
+  document.querySelectorAll(".tool-btn").forEach(btn => {
+    btn.addEventListener("mouseenter", () => {
+      const text = btn.getAttribute("data-tooltip");
+      if (!text) return;
+      tip.textContent = text;
+      tip.style.display = "block";
+      const rect = btn.getBoundingClientRect();
+      tip.style.left = rect.left + "px";
+      tip.style.top = (rect.top - tip.offsetHeight - 12) + "px";
+    });
+    btn.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+  });
+});
+</script>
+</body>
+</html>
