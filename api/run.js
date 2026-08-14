@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import "dotenv/config";
 import "@primuslabs/zktls-core-sdk";
-import "@primuslabs/network-core-sdk";
 import "ethers";
 import "dotenv";
 
@@ -28,22 +27,22 @@ function rewriteCodePaths(code, sdk) {
   if (sdk === "zktls-core-sdk") {
     const abs = resolveModuleToAbs(sdk);
     code = code.replace(
-      /from\s+"@primuslabs\/zktls-core-sdk"/g,
+      /from\s+["']@primuslabs\/zktls-core-sdk["']/g,
       'from "' + abs + '"'
     );
   } else {
     const abs = resolveModuleToAbs(sdk);
     code = code.replace(
-      /require\('@primuslabs\/network-core-sdk'\)/g,
+      /require\(["']@primuslabs\/network-core-sdk["']\)/g,
       "require('" + abs + "')"
     );
     // ethers + dotenv live in the same project node_modules
     code = code.replace(
-      /require\('ethers'\)/g,
+      /require\(["']ethers["']\)/g,
       "require('" + path.join(__dirname, "..", "node_modules", "ethers") + "')"
     );
     code = code.replace(
-      /require\('dotenv'\)/g,
+      /require\(["']dotenv["']\)/g,
       "require('" + path.join(__dirname, "..", "node_modules", "dotenv") + "')"
     );
   }
