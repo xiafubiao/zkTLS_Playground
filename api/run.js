@@ -9,6 +9,43 @@ import "dotenv/config";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXEC_TIMEOUT_MS = 55 * 1000;
 
+// Temp code files live in the OS tmp dir (only /tmp is writable on Vercel).
+// ESM/CJS module resolution walks up from the temp file location and cannot
+// see the project's node_modules, so we rewrite import/require statements in
+// the generated code to point at the project's node_modules via absolute paths.
+function resolveModuleToAbs(sdk) {
+  if (sdk === "zktls-core-sdk") {
+    return path.join(__dirname, "..", "node_modules", "@primuslabs", "zktls-core-sdk", "dist", "index.js");
+  }
+  return path.join(__dirname, "..", "node_modules", "@primuslabs", "network-core-sdk");
+}
+
+function rewriteCodePaths(code, sdk) {
+  if (sdk === "zktls-core-sdk") {
+    const abs = resolveModuleToAbs(sdk);
+    code = code.replace(
+      /from\s+"@primuslabs\/zktls-core-sdk"/g,
+      'from "' + abs + '"'
+    );
+  } else {
+    const abs = resolveModuleToAbs(sdk);
+    code = code.replace(
+      /require\('@primuslabs\/network-core-sdk'\)/g,
+      "require('" + abs + "')"
+    );
+    // ethers + dotenv live in the same project node_modules
+    code = code.replace(
+      /require\('ethers'\)/g,
+      "require('" + path.join(__dirname, "..", "node_modules", "ethers") + "')"
+    );
+    code = code.replace(
+      /require\('dotenv'\)/g,
+      "require('" + path.join(__dirname, "..", "node_modules", "dotenv") + "')"
+    );
+  }
+  return code;
+}
+
 export const maxDuration = 60;
 
 export default async function handler(req, res) {
@@ -43,7 +80,7 @@ export default async function handler(req, res) {
   send({ type: "status", data: "Running..." });
 
   process.chdir(path.join(__dirname, ".."));
-  fs.writeFileSync(tmpFile, code);
+  fs.writeFileSync(tmpFile, rewriteCodePaths(code, sdk));
 
   const child = spawn("node", [tmpFile], {
     cwd: path.join(__dirname, ".."),

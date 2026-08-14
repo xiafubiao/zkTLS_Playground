@@ -11,9 +11,58 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 4567;
 const EXEC_TIMEOUT_MS = 5 * 60 * 1000;
 
+// Temp code files live in the OS tmp dir (only /tmp is writable on Vercel).
+// ESM/CJS module resolution walks up from the temp file location and cannot
+// see the project's node_modules, so we rewrite import/require statements in
+// the generated code to point at the project's node_modules via absolute paths.
+function resolveModuleToAbs(sdk) {
+  if (sdk === "zktls-core-sdk") {
+    return path.join(__dirname, "node_modules", "@primuslabs", "zktls-core-sdk", "dist", "index.js");
+  }
+  return path.join(__dirname, "node_modules", "@primuslabs", "network-core-sdk");
+}
+
+function rewriteCodePaths(code, sdk) {
+  if (sdk === "zktls-core-sdk") {
+    const abs = resolveModuleToAbs(sdk);
+    code = code.replace(
+      /from\s+"@primuslabs\/zktls-core-sdk"/g,
+      'from "' + abs + '"'
+    );
+  } else {
+    const abs = resolveModuleToAbs(sdk);
+    code = code.replace(
+      /require\('@primuslabs\/network-core-sdk'\)/g,
+      "require('" + abs + "')"
+    );
+    // ethers + dotenv live in the same project node_modules
+    code = code.replace(
+      /require\('ethers'\)/g,
+      "require('" + path.join(__dirname, "node_modules", "ethers") + "')"
+    );
+    code = code.replace(
+      /require\('dotenv'\)/g,
+      "require('" + path.join(__dirname, "node_modules", "dotenv") + "')"
+    );
+  }
+  return code;
+}
+
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+
+// HTTP POST /api/run — reuse the Vercel serverless handler so local dev
+// behavior matches the deployed version (NDJSON streaming response).
+app.post("/api/run", async (req, res) => {
+  try {
+    const mod = await import("./api/run.js");
+    const handler = mod.default;
+    await handler(req, res);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 const server = app.listen(PORT, "127.0.0.1", () => {
   console.log(`\n  zkTLS Playground running at http://localhost:${PORT}\n`);
@@ -56,7 +105,7 @@ wss.on("connection", (ws) => {
         .replace("__RPC_URL__", config.rpcUrl || "https://sepolia.base.org");
     }
 
-    fs.writeFileSync(tmpFile, finalCode);
+    fs.writeFileSync(tmpFile, rewriteCodePaths(finalCode, sdk));
 
     ws.send(JSON.stringify({ type: "status", data: "Running..." }));
 
