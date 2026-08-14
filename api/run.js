@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -22,8 +23,7 @@ export default async function handler(req, res) {
   }
 
   const ext = sdk === "network-core-sdk" ? ".cjs" : ".mjs";
-  const tmpFile = path.join(__dirname, "..", "tmp", `zktls_${crypto.randomUUID()}${ext}`);
-  fs.mkdirSync(path.dirname(tmpFile), { recursive: true });
+  const tmpFile = path.join(os.tmpdir(), `zktls_${crypto.randomUUID()}${ext}`);
 
   if (sdk === "network-core-sdk") {
     if (config.chainId) process.env.CHAIN_ID = config.chainId;
