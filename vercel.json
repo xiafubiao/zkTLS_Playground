@@ -10,14 +10,7 @@
   ],
   "functions": {
     "api/run.js": {
-      "includeFiles": [
-        "node_modules/@primuslabs/zktls-core-sdk/dist/**/*",
-        "node_modules/@primuslabs/zktls-core-sdk/build/**/*",
-        "node_modules/@primuslabs/zktls-core-sdk/native/**/*",
-        "node_modules/@primuslabs/network-core-sdk/dist/**/*",
-        "node_modules/ethers/**/*",
-        "node_modules/dotenv/**/*"
-      ]
+      "includeFiles": "node_modules/@primuslabs/**/*"
     }
   }
 }
