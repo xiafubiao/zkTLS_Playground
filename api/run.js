@@ -92,8 +92,16 @@ export default async function handler(req, res) {
     timeout: EXEC_TIMEOUT_MS,
   });
 
-  child.stdout.on("data", (data) => send({ type: "stdout", data: data.toString() }));
-  child.stderr.on("data", (data) => send({ type: "stderr", data: data.toString() }));
+  child.stdout.on("data", (data) => {
+    const text = data.toString();
+    if (/Native addon failed|Use WASM Mode|WASM module initialized/i.test(text)) return;
+    send({ type: "stdout", data: text });
+  });
+  child.stderr.on("data", (data) => {
+    const text = data.toString();
+    if (/Native addon failed|Use WASM Mode|WASM module initialized/i.test(text)) return;
+    send({ type: "stderr", data: text });
+  });
 
   child.on("close", (exitCode) => {
     send({ type: "done", exitCode });
