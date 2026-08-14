@@ -290,7 +290,7 @@ function networkCoreTemplate(ex) {
   ].join("\n");
 }
 
-let editor, isRunning = false;
+let editor, isRunning = false, runTimer = null;
 
 function addZkTLSOp() {
     const sdk = getCurrentSDK();
@@ -651,13 +651,19 @@ function handleOutput(msg) {
     else appendOutput(msg.data, "stderr");
   }
   else if (msg.type === "status") { appendOutput(msg.data, "info"); }
-  else if (msg.type === "done") {
-    isRunning = false;
-    document.getElementById("btn-run").disabled = false;
-    document.getElementById("btn-run").textContent = "Run";
+   else if (msg.type === "done") {
+    finishRun();
     if (msg.exitCode === 0) { setStatus("success", "success"); appendOutput("\n[Process exited: 0]", "info"); }
     else { setStatus("error", "error"); appendOutput("\n[Process exited: " + msg.exitCode + "]", "stderr"); }
   }
+}
+
+function finishRun() {
+  if (!isRunning) return;
+  isRunning = false;
+  const btn = document.getElementById("btn-run");
+  if (btn) { btn.disabled = false; btn.textContent = "Run"; }
+  if (runTimer) { clearTimeout(runTimer); runTimer = null; }
 }
 
 async function runCode() {
@@ -665,8 +671,17 @@ async function runCode() {
   isRunning = true;
   clearOutput();
   setStatus("running", "running");
-  document.getElementById("btn-run").disabled = true;
-  document.getElementById("btn-run").textContent = "Running...";
+  const btn = document.getElementById("btn-run");
+  btn.disabled = true;
+  btn.textContent = "Running...";
+
+  // Safety net: never leave the button stuck regardless of what happens
+  // with the stream (some networks/proxies may drop the trailing chunk).
+  if (runTimer) clearTimeout(runTimer);
+  runTimer = setTimeout(() => {
+    finishRun();
+    appendOutput("\n[Process timed out]", "info");
+  }, 120000);
 
   try {
     const res = await fetch("/api/run", {
@@ -701,11 +716,11 @@ async function runCode() {
     if (buffer.trim()) {
       try { handleOutput(JSON.parse(buffer)); } catch {}
     }
+    // Stream ended but we never got a "done" message -> finish anyway.
+    finishRun();
   } catch (err) {
     appendOutput("API Error: " + err.message, "stderr");
-    isRunning = false;
-    document.getElementById("btn-run").disabled = false;
-    document.getElementById("btn-run").textContent = "Run";
+    finishRun();
     setStatus("error", "error");
   }
 }
