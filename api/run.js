@@ -83,7 +83,10 @@ export default async function handler(req, res) {
   send({ type: "status", data: "Running..." });
 
   process.chdir(path.join(__dirname, ".."));
-  fs.writeFileSync(tmpFile, rewriteCodePaths(code, sdk));
+  // Append a forced exit so the child process terminates cleanly even if the
+  // SDK leaves worker threads (WASM) alive; otherwise "done" never fires.
+  const finalCode = rewriteCodePaths(code, sdk) + "\n\nprocess.exit(0);\n";
+  fs.writeFileSync(tmpFile, finalCode);
 
   const child = spawn("node", [tmpFile], {
     cwd: path.join(__dirname, ".."),
