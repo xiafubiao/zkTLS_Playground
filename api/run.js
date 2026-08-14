@@ -5,6 +5,10 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import "dotenv/config";
+import "@primuslabs/zktls-core-sdk";
+import "@primuslabs/network-core-sdk";
+import "ethers";
+import "dotenv";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXEC_TIMEOUT_MS = 55 * 1000;
