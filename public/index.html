@@ -285,7 +285,11 @@ function networkCoreTemplate(ex) {
     '  console.log(JSON.stringify(result, null, 2));',
     "}",
     "",
-    "(async () => { await main().catch(err => console.error('[ERROR]', err.message || err)); })();",
+    "(async () => {",
+    "  try { await main(); }",
+    "  catch (err) { console.error('[ERROR]', err.message || err); process.exit(1); }",
+    "  process.exit(0);",
+    "})();",
     ""
   ].join("\n");
 }

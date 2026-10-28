@@ -85,7 +85,11 @@ export default async function handler(req, res) {
   process.chdir(path.join(__dirname, ".."));
   // Append a forced exit so the child process terminates cleanly even if the
   // SDK leaves worker threads (WASM) alive; otherwise "done" never fires.
-  const finalCode = rewriteCodePaths(code, sdk) + "\n\nprocess.exit(0);\n";
+  // Only safe for zktls-core-sdk, whose template awaits `main()` at top level.
+  // The network template runs an un-awaited async IIFE, so appending an
+  // unconditional exit here would terminate it before any work happens.
+  const finalCode = rewriteCodePaths(code, sdk) +
+    (sdk === "zktls-core-sdk" ? "\n\nprocess.exit(0);\n" : "\n");
   fs.writeFileSync(tmpFile, finalCode);
 
   const child = spawn("node", [tmpFile], {
